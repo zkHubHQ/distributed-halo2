@@ -1,0 +1,6 @@
+/target
+/Cargo.lock
+
+
+secret-sharing/target
+secret-sharing/Cargo.lock
