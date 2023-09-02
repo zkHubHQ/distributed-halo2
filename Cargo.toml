@@ -1,5 +1,6 @@
 [workspace]
 members = [
   "secret-sharing",
-  "dist-primitives"
+  "dist-primitives",
+  "mpc-net"
 ]
