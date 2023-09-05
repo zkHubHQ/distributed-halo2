@@ -1,27 +1,32 @@
 use crate::{
     channel::channel::MpcSerNet,
+    utils::domain_util::EvaluationDomainExt,
     utils::pack::{pack_vec, transpose},
 };
-use ff::PrimeField;
-use halo2_proofs::poly::EvaluationDomain;
 use ark_std::{end_timer, log2, start_timer};
+use ff::{PrimeField, WithSmallOrderMulGroup};
+use halo2_proofs::poly::EvaluationDomain;
 use log::debug;
 use mpc_net::{MpcMultiNet as Net, MpcNet};
 use secret_sharing::pss::PackedSharingParams;
+use serde::{Deserialize, Serialize};
 use std::mem;
 
 /// Takes as input packed shares of evaluations a polynomial over dom and outputs shares of the FFT of the polynomial
 /// rearrange: whether or not to rearrange output shares
 /// pad: whether or not to pad output shares with zeros
 /// degree2: whether or not to do degree reduction n the input shares
-pub fn d_fft<F: PrimeField>(
+pub fn d_fft<F>(
     mut pcoeff_share: Vec<F>,
     rearrange: bool,
     pad: usize,
     degree2: bool,
     dom: &EvaluationDomain<F>,
     pp: &PackedSharingParams<F>,
-) -> Vec<F> {
+) -> Vec<F>
+where
+    F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>,
+{
     debug_assert_eq!(
         pcoeff_share.len() * pp.l,
         dom.size(),
@@ -36,14 +41,17 @@ pub fn d_fft<F: PrimeField>(
     fft2_with_rearrange_pad(pcoeff_share, rearrange, pad, degree2, dom, pp)
 }
 
-pub fn d_ifft<F: PrimeField>(
+pub fn d_ifft<F>(
     mut peval_share: Vec<F>,
     rearrange: bool,
     pad: usize,
     degree2: bool,
     dom: &EvaluationDomain<F>,
     pp: &PackedSharingParams<F>,
-) -> Vec<F> {
+) -> Vec<F>
+where
+    F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>,
+{
     debug_assert_eq!(
         peval_share.len() * pp.l,
         dom.size(),
@@ -52,7 +60,7 @@ pub fn d_ifft<F: PrimeField>(
         dom.size()
     );
 
-    let sizeinv = F::from(dom.size as u64).inverse().unwrap();
+    let sizeinv = F::from(dom.size() as u64).invert().unwrap();
     peval_share.iter_mut().for_each(|x| *x = *x * sizeinv);
 
     // Parties apply FFT1 locally
@@ -62,14 +70,13 @@ pub fn d_ifft<F: PrimeField>(
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-fn fft1_in_place<F: PrimeField>(
-    px: &mut Vec<F>,
-    dom: &EvaluationDomain<F>,
-    pp: &PackedSharingParams<F>,
-) {
+fn fft1_in_place<F>(px: &mut Vec<F>, dom: &EvaluationDomain<F>, pp: &PackedSharingParams<F>)
+where
+    F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>,
+{
     // FFT1 computation done locally on a vector of shares
     debug_assert_eq!(
-        dom.group_gen_inv.pow(&[(px.len() * pp.l) as u64]),
+        dom.get_omega_inv().pow(&[(px.len() * pp.l) as u64]),
         F::ONE,
         "Mismatch of size in FFT1, input:{}",
         px.len()
@@ -83,7 +90,7 @@ fn fft1_in_place<F: PrimeField>(
     // fft1
     for i in (log2(pp.l) + 1..=log2(dom.size())).rev() {
         let poly_size = dom.size() / 2usize.pow(i);
-        let factor_stride = dom.group_gen_inv.pow(&[2usize.pow(i - 1) as u64]);
+        let factor_stride = dom.get_omega_inv().pow(&[2usize.pow(i - 1) as u64]);
         let mut factor = factor_stride;
         for k in 0..poly_size {
             for j in 0..2usize.pow(i - 1) / pp.l {
@@ -107,7 +114,9 @@ fn fft2_in_place<F: PrimeField>(
     s1: &mut Vec<F>,
     dom: &EvaluationDomain<F>,
     pp: &PackedSharingParams<F>,
-) {
+) where
+    F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>,
+{
     // King applies fft2, packs the vectors as desired and sends shares to parties
 
     let now = start_timer!(|| "FFT2");
@@ -120,7 +129,7 @@ fn fft2_in_place<F: PrimeField>(
     // fft2
     for i in (1..=log2(pp.l)).rev() {
         let poly_size = dom.size() / 2usize.pow(i);
-        let factor_stride = dom.group_gen_inv.pow(&[2usize.pow(i - 1) as u64]);
+        let factor_stride = dom.get_omega_inv().pow(&[2usize.pow(i - 1) as u64]);
         let mut factor = factor_stride;
         for k in 0..poly_size {
             for j in 0..2usize.pow(i - 1) {
@@ -151,7 +160,10 @@ fn fft2_with_rearrange_pad<F: PrimeField>(
     degree2: bool,
     dom: &EvaluationDomain<F>,
     pp: &PackedSharingParams<F>,
-) -> Vec<F> {
+) -> Vec<F>
+where
+    F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>,
+{
     // King applies FFT2 with rearrange
 
     let mbyl = px.len();

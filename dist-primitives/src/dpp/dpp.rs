@@ -8,20 +8,20 @@ use crate::{
         pack::{pack_vec, transpose},
     },
 };
-use ff::{Field, PrimeField};
 use ark_std::{end_timer, start_timer};
+use ff::{Field, PrimeField, WithSmallOrderMulGroup};
 use mpc_net::MpcMultiNet as Net;
 use secret_sharing::pss::PackedSharingParams;
+use serde::{Deserialize, Serialize};
 
 // Given pre-processed randomness [s], [s^-1]
-pub fn d_pp<F: PrimeField + Field>(
-    num: Vec<F>,
-    den: Vec<F>,
-    pp: &PackedSharingParams<F>,
-) -> Vec<F> {
+pub fn d_pp<F>(num: Vec<F>, den: Vec<F>, pp: &PackedSharingParams<F>) -> Vec<F>
+where
+    F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>,
+{
     // using some dummy randomness
-    let s = F::from(1 as u32);
-    let sinv = s.inverse().unwrap();
+    let s = F::from(1 as u64);
+    let sinv = s.invert().unwrap();
 
     // multiply all entries of px by of s
     let dpp_rand_timer = start_timer!(|| "DppRand");
@@ -50,7 +50,7 @@ pub fn d_pp<F: PrimeField + Field>(
         let mut numden: Vec<F> = numden_shares.iter().flat_map(|x| pp.unpack2(&x)).collect();
 
         for i in 0..numden.len() / 2 {
-            let den = numden[i + numden.len() / 2].inverse().unwrap();
+            let den = numden[i + numden.len() / 2].invert().unwrap();
             numden[i] *= den;
         }
 

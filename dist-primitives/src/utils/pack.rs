@@ -1,8 +1,11 @@
 use ark_std::{end_timer, start_timer};
-use ff::PrimeField;
+use ff::{PrimeField, WithSmallOrderMulGroup};
 use secret_sharing::pss::PackedSharingParams;
 
-pub fn pack_vec<F: PrimeField>(secrets: &Vec<F>, pp: &PackedSharingParams<F>) -> Vec<Vec<F>> {
+pub fn pack_vec<F: PrimeField + WithSmallOrderMulGroup<3>>(
+    secrets: &Vec<F>,
+    pp: &PackedSharingParams<F>,
+) -> Vec<Vec<F>> {
     debug_assert_eq!(secrets.len() % pp.l, 0, "Mismatch of size in pack_vec");
     let pack_shares_timer = start_timer!(|| "Packing shares");
 

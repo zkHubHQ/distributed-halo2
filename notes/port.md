@@ -21,13 +21,16 @@ No Arkworks dependencies, no code changes done
 
 ## dist-primitives
 
+- **domain_util.rs**
+  - Created a trait called EvaluationDomainExt, and implemented it for EvaluationDomain. Meant for adding the extension method size() to the EvaluationDomain triat, rather than using "ugly math" all the time (1 << domain.k())
 - **channel.rs**
   - Changed ark-serialize to serde's serialize
   - Using bincode for the type of data that gets serialized/deserialized
   - HRTB for the Deserialize trait
 - **dpp.rs**
   - Update FftField to PrimeField
-  - 
+  - Add generic trait bound to most methods - where F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>
+  - Use the invert() method in EvaluationDomain instead of inverse()
 - **dmsm.rs**
   - Change G::ScalarField to G::Scalar (Scalar is an alias for PrimeField within the group trait)
   - Change G::ScalarField to G::Scalar (Scalar is an alias for PrimeField within the group trait)
@@ -35,4 +38,11 @@ No Arkworks dependencies, no code changes done
   - Change Radix2EvaluationDomain to EvaluationDomain
   - Change F::zero() to F::ZERO
   - Change F::one() to F::ONE
-  - 
+  - Import EvaluationDomainExt to access the size method extension
+  - Add generic trait bound to most methods - where F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>
+  - Use the invert() method in EvaluationDomain instead of inverse()
+  - Change group_gen_inv to get_omega_inv()
+- **deg_red.rs**
+  - Add generic trait bound to most methods - where F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de>
+- **pack.rs**
+  - Add generic trait bound- where F: PrimeField + WithSmallOrderMulGroup<3>

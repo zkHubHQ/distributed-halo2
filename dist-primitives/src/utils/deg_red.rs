@@ -1,14 +1,18 @@
 use ark_std::{end_timer, start_timer};
-use ff::PrimeField;
+use ff::{PrimeField, WithSmallOrderMulGroup};
 use mpc_net::MpcMultiNet as Net;
 use secret_sharing::pss::PackedSharingParams;
+use serde::{Deserialize, Serialize};
 
 use crate::channel::channel::MpcSerNet;
 
 use super::pack::transpose;
 
 /// Reduces the degree of a poylnomial with the help of king
-pub fn deg_red<F: PrimeField>(px: Vec<F>, pp: &PackedSharingParams<F>) -> Vec<F> {
+pub fn deg_red<F>(px: Vec<F>, pp: &PackedSharingParams<F>) -> Vec<F>
+where
+    F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>,
+{
     let communication_timer = start_timer!(|| "ComToKing");
     let received_shares = Net::send_to_king(&px);
     end_timer!(communication_timer);
