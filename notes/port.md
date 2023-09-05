@@ -17,6 +17,7 @@ No Arkworks dependencies, no code changes done
     - This new approach resulted in refactoring the logic in `unpack2_in_place` method's last line: `*shares = shares.iter().filter(|&&x| x != F::ZERO).copied().collect();`
   - Changed from BLS12-377 to BN256
     - Does not BN256 lib does expose a random Fr function, hence created helper method that's only used in the test cases
+  - TODO: WithSmallOrderMulGroup<3>, 3 was arbitrarily chosen and needs to be changed to another value with more thought
 
 ## dist-primitives
 
@@ -24,4 +25,14 @@ No Arkworks dependencies, no code changes done
   - Changed ark-serialize to serde's serialize
   - Using bincode for the type of data that gets serialized/deserialized
   - HRTB for the Deserialize trait
-- **
+- **dpp.rs**
+  - Update FftField to PrimeField
+  - 
+- **dmsm.rs**
+  - Change G::ScalarField to G::Scalar (Scalar is an alias for PrimeField within the group trait)
+  - Change G::ScalarField to G::Scalar (Scalar is an alias for PrimeField within the group trait)
+- **dfft.rs**
+  - Change Radix2EvaluationDomain to EvaluationDomain
+  - Change F::zero() to F::ZERO
+  - Change F::one() to F::ONE
+  - 

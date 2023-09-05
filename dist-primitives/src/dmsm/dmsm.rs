@@ -1,18 +1,23 @@
 use crate::channel::channel::MpcSerNet;
+use ark_std::{end_timer, start_timer};
+use ff::WithSmallOrderMulGroup;
 use group::{Curve, Group};
 use halo2_proofs::poly::EvaluationDomain;
-use ark_std::{end_timer, start_timer};
 use mpc_net::{MpcMultiNet as Net, MpcNet};
 use secret_sharing::pss::PackedSharingParams;
 
 pub fn unpackexp<G: Group>(
     shares: &Vec<G>,
     degree2: bool,
-    pp: &PackedSharingParams<G::ScalarField>,
-) -> Vec<G> {
+    pp: &PackedSharingParams<G::Scalar>,
+) -> Vec<G>
+where
+    G::Scalar: WithSmallOrderMulGroup<3>,
+{
     let mut result = shares.to_vec();
 
     // interpolate shares
+    PackedSharingParams::<G::Scalar>::ifft(&mut result, &pp.share);
     pp.share.ifft_in_place(&mut result);
 
     // Simplified this assertion using a zero check in the last n - d - 1 entries
@@ -52,7 +57,7 @@ pub fn unpackexp<G: Group>(
 
 pub fn packexp_from_public<G: Group>(
     secrets: &Vec<G>,
-    pp: &PackedSharingParams<G::ScalarField>,
+    pp: &PackedSharingParams<G::Scalar>,
 ) -> Vec<G> {
     debug_assert_eq!(secrets.len(), pp.l);
 
@@ -67,9 +72,9 @@ pub fn packexp_from_public<G: Group>(
 }
 
 pub fn d_msm<G: Curve>(
-    bases: &[G::Affine],
-    scalars: &[G::ScalarField],
-    pp: &PackedSharingParams<G::ScalarField>,
+    bases: &[G::AffineRepr],
+    scalars: &[G::Scalar],
+    pp: &PackedSharingParams<G::Scalar>,
 ) -> G {
     // Using affine is important because we don't want to create an extra vector for converting Projective to Affine.
     // Eventually we do have to convert to Projective but this will be pp.l group elements instead of m()

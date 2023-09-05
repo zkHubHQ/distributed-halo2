@@ -3,7 +3,7 @@ use crate::{
     utils::pack::{pack_vec, transpose},
 };
 use ff::PrimeField;
-use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
+use halo2_proofs::poly::EvaluationDomain;
 use ark_std::{end_timer, log2, start_timer};
 use log::debug;
 use mpc_net::{MpcMultiNet as Net, MpcNet};
@@ -19,7 +19,7 @@ pub fn d_fft<F: PrimeField>(
     rearrange: bool,
     pad: usize,
     degree2: bool,
-    dom: &Radix2EvaluationDomain<F>,
+    dom: &EvaluationDomain<F>,
     pp: &PackedSharingParams<F>,
 ) -> Vec<F> {
     debug_assert_eq!(
@@ -41,7 +41,7 @@ pub fn d_ifft<F: PrimeField>(
     rearrange: bool,
     pad: usize,
     degree2: bool,
-    dom: &Radix2EvaluationDomain<F>,
+    dom: &EvaluationDomain<F>,
     pp: &PackedSharingParams<F>,
 ) -> Vec<F> {
     debug_assert_eq!(
@@ -64,13 +64,13 @@ pub fn d_ifft<F: PrimeField>(
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 fn fft1_in_place<F: PrimeField>(
     px: &mut Vec<F>,
-    dom: &Radix2EvaluationDomain<F>,
+    dom: &EvaluationDomain<F>,
     pp: &PackedSharingParams<F>,
 ) {
     // FFT1 computation done locally on a vector of shares
     debug_assert_eq!(
         dom.group_gen_inv.pow(&[(px.len() * pp.l) as u64]),
-        F::one(),
+        F::ONE,
         "Mismatch of size in FFT1, input:{}",
         px.len()
     );
@@ -105,13 +105,13 @@ fn fft1_in_place<F: PrimeField>(
 
 fn fft2_in_place<F: PrimeField>(
     s1: &mut Vec<F>,
-    dom: &Radix2EvaluationDomain<F>,
+    dom: &EvaluationDomain<F>,
     pp: &PackedSharingParams<F>,
 ) {
     // King applies fft2, packs the vectors as desired and sends shares to parties
 
     let now = start_timer!(|| "FFT2");
-    let mut s2 = vec![F::zero(); s1.len()]; //Remove this time permitting
+    let mut s2 = vec![F::ZERO; s1.len()]; //Remove this time permitting
 
     if Net::am_king() {
         debug!("Applying fft2");
@@ -149,7 +149,7 @@ fn fft2_with_rearrange_pad<F: PrimeField>(
     rearrange: bool,
     pad: usize,
     degree2: bool,
-    dom: &Radix2EvaluationDomain<F>,
+    dom: &EvaluationDomain<F>,
     pp: &PackedSharingParams<F>,
 ) -> Vec<F> {
     // King applies FFT2 with rearrange
@@ -163,7 +163,7 @@ fn fft2_with_rearrange_pad<F: PrimeField>(
 
     let king_answer = received_shares.map(|all_shares| {
         let all_shares = transpose(all_shares);
-        let mut s1: Vec<F> = vec![F::zero(); px.len() * pp.l];
+        let mut s1: Vec<F> = vec![F::ZERO; px.len() * pp.l];
 
         let open_shares_timer = start_timer!(|| "Opening shares");
         for i in 0..mbyl {
@@ -184,7 +184,7 @@ fn fft2_with_rearrange_pad<F: PrimeField>(
 
         // Optionally double length by padding zeros here
         if pad > 1 {
-            s1.resize(pad * s1.len(), F::zero());
+            s1.resize(pad * s1.len(), F::ZERO);
         }
 
         // Optionally rearrange to get ready for next FFT/IFFT

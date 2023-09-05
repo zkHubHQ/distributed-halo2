@@ -42,7 +42,7 @@ impl<F: PrimeField + WithSmallOrderMulGroup<3>> PackedSharingParams<F> {
     }
 
     // Custom FFT function using halo2's EvaluationDomain
-    fn fft(&self, poly: &mut Vec<F>, domain: &EvaluationDomain<F>) -> Vec<F> {
+    pub fn fft(poly: &mut Vec<F>, domain: &EvaluationDomain<F>) -> Vec<F> {
         poly.resize(1 << domain.k(), F::ZERO);
         let coeff_poly = domain.coeff_from_vec(poly.clone());
         let lagrange_poly = domain.coeff_to_extended(coeff_poly);
@@ -50,7 +50,7 @@ impl<F: PrimeField + WithSmallOrderMulGroup<3>> PackedSharingParams<F> {
     }
 
     // Custom IFFT function using halo2's EvaluationDomain
-    fn ifft(&self, poly: &mut Vec<F>, domain: &EvaluationDomain<F>) -> Vec<F> {
+    pub fn ifft(poly: &mut Vec<F>, domain: &EvaluationDomain<F>) -> Vec<F> {
         poly.resize(1 << domain.k(), F::ZERO);
         let lagrange_poly = domain.lagrange_from_vec(poly.clone());
         let coeff_poly = domain.lagrange_to_coeff(lagrange_poly);
@@ -67,9 +67,9 @@ impl<F: PrimeField + WithSmallOrderMulGroup<3>> PackedSharingParams<F> {
     #[allow(unused)]
     pub fn pack_from_public_in_place(&self, secrets: &mut Vec<F>) {
         // interpolating on secrets domain
-        self.ifft(secrets, &self.secret);
+        Self::ifft(secrets, &self.secret);
         // evaluate on share domain
-        self.fft(secrets, &self.share);
+        Self::fft(secrets, &self.share);
     }
 
     #[allow(unused)]
@@ -89,9 +89,9 @@ impl<F: PrimeField + WithSmallOrderMulGroup<3>> PackedSharingParams<F> {
     #[allow(unused)]
     pub fn unpack_in_place(&self, shares: &mut Vec<F>) {
         // interpolating on share domain
-        self.ifft(shares, &self.share);
+        Self::ifft(shares, &self.share);
         // evaluate on secrets domain
-        self.fft(shares, &self.secret);
+        Self::fft(shares, &self.secret);
         // truncate to remove the randomness
         shares.truncate(self.l);
     }
@@ -99,9 +99,9 @@ impl<F: PrimeField + WithSmallOrderMulGroup<3>> PackedSharingParams<F> {
     #[allow(unused)]
     pub fn unpack2_in_place(&self, shares: &mut Vec<F>) {
         // interpolating on share domain
-        self.ifft(shares, &self.share);
+        Self::ifft(shares, &self.share);
         // evaluate on secrets2 domain
-        self.fft(shares, &self.secret2);
+        Self::fft(shares, &self.secret2);
         // drop alternate elements from shares array and only iterate till 2l as the rest of it is randomness
         *shares = shares.iter().filter(|&&x| x != F::ZERO).copied().collect();
     }
