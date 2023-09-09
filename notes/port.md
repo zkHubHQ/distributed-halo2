@@ -21,8 +21,9 @@ No Arkworks dependencies, no code changes done
 
 ## dist-primitives
 
-- **domain_util.rs**
+- **domain_utils.rs**
   - Created a trait called EvaluationDomainExt, and implemented it for EvaluationDomain. Meant for adding the extension method size() to the EvaluationDomain triat, rather than using "ugly math" all the time (1 << domain.k())
+  - Create 2 methods for performing FFT/IFFT operations on group elements
 - **channel.rs**
   - Changed ark-serialize to serde's serialize
   - Using bincode for the type of data that gets serialized/deserialized
@@ -34,6 +35,15 @@ No Arkworks dependencies, no code changes done
 - **dmsm.rs**
   - Change G::ScalarField to G::Scalar (Scalar is an alias for PrimeField within the group trait)
   - Change G::ScalarField to G::Scalar (Scalar is an alias for PrimeField within the group trait)
+  - Create custom [bytestream serializer](../dist-primitives/src/utils/g1_serialization.rs) as send_to_king and recv_from_king expect it to be implemented. I am using the visitor design pattern to implement this serializer
+  - Use the custom FFT/IFFT implementations in [domain_utils](../dist-primitives/src/utils/domain_utils.rs) to perform the FFT/IFFT over a CurveGroup. This is not supported by default in Halo2, and had to "hack" this together
+  - Add generic trait bound to most methods - where F: PrimeField + WithSmallOrderMulGroup<3>
+  - Change the top level trait from `G:Group` to `E: Engine` for most of the methods as the structure is different in Halo2 compared to Arkworks for handling groups and scalar. The groups and scalars are packages inside the Engine trait in pairing.rs in halo2_proof
+  - Change from G::msm to MSMKZG::new + msm.eval for performing the msm operations
+  - Update the tests to use the Bn256 curve rather than Bls12_377
+  - Create a helper method in tests to create random group elements (create_random_group_elements)
+  - 
+  - Food for thought: we are not permforming the [distribute_powers_zeta](../dist-primitives/src/utils/domain_utils.rs#L20) operation in the custom FFT implementation for group elements. It is most likely not needed as the domain evaluation is not performed over any cosets, but try to revisit later someday. 
 - **dfft.rs**
   - Change Radix2EvaluationDomain to EvaluationDomain
   - Change F::zero() to F::ZERO

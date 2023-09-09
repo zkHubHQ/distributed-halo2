@@ -1,6 +1,6 @@
 use crate::{
     channel::channel::MpcSerNet,
-    utils::domain_util::EvaluationDomainExt,
+    utils::domain_utils::EvaluationDomainExt,
     utils::pack::{pack_vec, transpose},
 };
 use ark_std::{end_timer, log2, start_timer};

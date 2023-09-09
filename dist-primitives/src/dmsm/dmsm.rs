@@ -1,24 +1,30 @@
-use crate::channel::channel::MpcSerNet;
+use std::fmt::Debug;
+
+use crate::utils::g1_serialization::G1Wrapper;
+use crate::{channel::channel::MpcSerNet, utils::domain_utils};
 use ark_std::{end_timer, start_timer};
-use ff::WithSmallOrderMulGroup;
-use group::{Curve, Group};
-use halo2_proofs::poly::EvaluationDomain;
+use ff::{PrimeField, WithSmallOrderMulGroup};
+use group::Group;
+use halo2_proofs::{
+    halo2curves::pairing::Engine,
+    poly::{commitment::MSM, kzg::msm::MSMKZG},
+};
 use mpc_net::{MpcMultiNet as Net, MpcNet};
 use secret_sharing::pss::PackedSharingParams;
 
-pub fn unpackexp<G: Group>(
-    shares: &Vec<G>,
+pub fn unpackexp<E>(
+    shares: &Vec<E::G1>,
     degree2: bool,
-    pp: &PackedSharingParams<G::Scalar>,
-) -> Vec<G>
+    pp: &PackedSharingParams<E::Scalar>,
+) -> Vec<E::G1>
 where
-    G::Scalar: WithSmallOrderMulGroup<3>,
+    E: Engine + Debug,
+    E::Scalar: PrimeField + WithSmallOrderMulGroup<3>,
 {
     let mut result = shares.to_vec();
 
     // interpolate shares
-    PackedSharingParams::<G::Scalar>::ifft(&mut result, &pp.share);
-    pp.share.ifft_in_place(&mut result);
+    domain_utils::ifft_on_group_elements::<E>(&mut result, &pp.share);
 
     // Simplified this assertion using a zero check in the last n - d - 1 entries
 
@@ -33,84 +39,102 @@ where
         }
 
         for i in d + 1..n {
-            debug_assert!(
-                result[i].is_zero(),
-                "Polynomial has degree > degree bound {})",
-                d
-            );
+            let is_identity: bool = result[i].is_identity().into();
+            debug_assert!(is_identity, "Polynomial has degree > degree bound {})", d);
         }
     }
 
     // Evalaute the polynomial on the coset to recover secrets
     if degree2 {
-        pp.secret2.fft_in_place(&mut result);
+        domain_utils::fft_on_group_elements::<E>(&mut result, &pp.secret2);
         result[0..pp.l * 2]
             .iter()
             .step_by(2)
             .copied()
             .collect::<Vec<_>>()
     } else {
-        pp.secret.fft_in_place(&mut result);
+        domain_utils::fft_on_group_elements::<E>(&mut result, &pp.secret);
         result[0..pp.l].to_vec()
     }
 }
 
-pub fn packexp_from_public<G: Group>(
-    secrets: &Vec<G>,
-    pp: &PackedSharingParams<G::Scalar>,
-) -> Vec<G> {
+pub fn packexp_from_public<E>(
+    secrets: &Vec<E::G1>,
+    pp: &PackedSharingParams<E::Scalar>,
+) -> Vec<E::G1>
+where
+    E: Engine + Debug,
+    E::Scalar: PrimeField + WithSmallOrderMulGroup<3>,
+{
     debug_assert_eq!(secrets.len(), pp.l);
 
     let mut result = secrets.to_vec();
     // interpolate secrets
-    pp.secret.ifft_in_place(&mut result);
+    domain_utils::ifft_on_group_elements::<E>(&mut result, &pp.secret);
 
     // evaluate polynomial to get shares
-    pp.share.fft_in_place(&mut result);
+    domain_utils::fft_on_group_elements::<E>(&mut result, &pp.share);
 
     result
 }
 
-pub fn d_msm<G: Curve>(
-    bases: &[G::AffineRepr],
-    scalars: &[G::Scalar],
-    pp: &PackedSharingParams<G::Scalar>,
-) -> G {
+pub fn d_msm<E>(
+    bases: &[E::G1],
+    scalars: &[E::Scalar],
+    pp: &PackedSharingParams<E::Scalar>,
+) -> E::G1
+where
+    E: Engine + Debug,
+    E::Scalar: PrimeField + WithSmallOrderMulGroup<3>,
+{
     // Using affine is important because we don't want to create an extra vector for converting Projective to Affine.
     // Eventually we do have to convert to Projective but this will be pp.l group elements instead of m()
+
+    // Ensure bases and scalars have the same length
+    assert_eq!(bases.len(), scalars.len());
 
     // First round of local computation done by parties
     println!("bases: {}, scalars: {}", bases.len(), scalars.len());
     let basemsm_timer = start_timer!(|| "Base MSM");
-    let c_share = G::msm(&bases, scalars).unwrap();
+
+    let mut msm = MSMKZG::<E>::new();
+
+    for (base, scalar) in bases.iter().zip(scalars.iter()) {
+        msm.append_term(*scalar, *base)
+    }
+
+    let c_share = msm.eval();
+
     end_timer!(basemsm_timer);
     // Now we do degree reduction -- psstoss
     // Send to king who reduces and sends shamir shares (not packed).
     // Should be randomized. First convert to projective share.
 
-    let king_answer: Option<Vec<G>> = Net::send_to_king(&c_share).map(|shares: Vec<G>| {
-        let output: G = unpackexp(&shares, true, pp).iter().sum();
-        vec![output; Net::n_parties()]
-    });
+    let king_answer: Option<Vec<G1Wrapper<E>>> =
+        Net::send_to_king(&G1Wrapper(c_share)).map(|wrapped_shares: Vec<G1Wrapper<E>>| {
+            let shares: Vec<E::G1> = wrapped_shares
+                .into_iter()
+                .map(|wrapper| wrapper.0)
+                .collect();
+            let output: E::G1 = unpackexp::<E>(&shares, true, pp).iter().sum();
+            vec![G1Wrapper(output); Net::n_parties()]
+        });
 
-    Net::recv_from_king(king_answer)
+    let received_answer: G1Wrapper<E> = Net::recv_from_king(king_answer);
+
+    received_answer.0
 }
 
 #[cfg(test)]
 mod tests {
-    use ark_ec::bls12::Bls12Config;
-    use ark_ec::CurveGroup;
-    use ark_ec::Group;
-    use ark_ec::VariableBaseMSM;
-    use ark_std::UniformRand;
-    use ark_std::Zero;
+    use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
+    use halo2_proofs::poly::commitment::MSM;
+    use halo2_proofs::poly::kzg::msm::MSMKZG;
     use secret_sharing::pss::PackedSharingParams;
 
-    use ark_bls12_377::G1Affine;
-    use ark_bls12_377::G1Projective as G1P;
-    type F = <ark_ec::short_weierstrass::Projective<
-        <ark_bls12_377::Config as Bls12Config>::G1Config,
-    > as Group>::ScalarField;
+    type G1P = <Bn256 as halo2_proofs::halo2curves::pairing::Engine>::G1;
+    type E = Bn256;
+    type F = Fr;
 
     use crate::dmsm::dmsm::packexp_from_public;
     use crate::dmsm::dmsm::unpackexp;
@@ -121,15 +145,36 @@ mod tests {
     // const T:usize = N/2 - L - 1;
     const M: usize = 1 << 8;
 
+    // Helper function to emulate the behavior of F::random.
+    fn random_fr<R: rand::Rng>(rng: &mut R) -> F {
+        let values = [
+            rng.next_u64(),
+            rng.next_u64(),
+            rng.next_u64(),
+            rng.next_u64(),
+        ];
+
+        F::from_raw(values)
+    }
+
+    fn create_random_group_elements<R: rand::Rng>(rng: &mut R, size: usize) -> Vec<G1P> {
+        (0..size)
+            .map(|_| {
+                let random_scalar: F = random_fr(rng);
+                G1P::default() * random_scalar
+            })
+            .collect()
+    }
+
     #[test]
     fn pack_unpack_test() {
         let pp = PackedSharingParams::<F>::new(L);
         let rng = &mut ark_std::test_rng();
-        let secrets: [G1P; L] = UniformRand::rand(rng);
-        let secrets = secrets.to_vec();
+        // Generate random secrets
+        let secrets = create_random_group_elements(rng, L);
 
-        let shares = packexp_from_public(&secrets, &pp);
-        let result = unpackexp(&shares, false, &pp);
+        let shares = packexp_from_public::<E>(&secrets, &pp);
+        let result = unpackexp::<E>(&shares, false, &pp);
 
         assert_eq!(secrets, result);
     }
@@ -139,19 +184,21 @@ mod tests {
         let pp = PackedSharingParams::<F>::new(L);
         let rng = &mut ark_std::test_rng();
 
-        let gsecrets: [G1P; M] = [G1P::rand(rng); M];
-        let gsecrets = gsecrets.to_vec();
+        let gsecrets = create_random_group_elements(rng, M);
 
-        let fsecrets: [F; M] = [F::from(1 as u32); M];
+        let fsecrets: [F; M] = [F::from(1 as u64); M];
         let fsecrets = fsecrets.to_vec();
 
         ///////////////////////////////////////
-        let gsecrets_aff: Vec<G1Affine> = gsecrets.iter().map(|s| s.clone().into()).collect();
-        let expected = G1P::msm(&gsecrets_aff, &fsecrets).unwrap();
+        let mut msm = MSMKZG::<E>::new();
+        for (base, scalar) in gsecrets.iter().zip(fsecrets.iter()) {
+            msm.append_term(*scalar, *base)
+        }
+        let expected = msm.eval();
         ///////////////////////////////////////
         let gshares: Vec<Vec<G1P>> = gsecrets
             .chunks(L)
-            .map(|s| packexp_from_public(&s.to_vec(), &pp))
+            .map(|s| packexp_from_public::<E>(&s.to_vec(), &pp))
             .collect();
 
         let fshares: Vec<Vec<F>> = fsecrets
@@ -162,18 +209,17 @@ mod tests {
         let gshares = transpose(gshares);
         let fshares = transpose(fshares);
 
-        let mut result = vec![G1P::zero(); N];
+        let mut result = vec![G1P::default(); N];
 
         for i in 0..N {
-            let temp_aff: Vec<
-                <ark_ec::short_weierstrass::Projective<
-                    <ark_bls12_377::Config as Bls12Config>::G1Config,
-                > as CurveGroup>::Affine,
-            > = gshares[i].iter().map(|s| s.clone().into()).collect();
-            result[i] = G1P::msm(&temp_aff, &fshares[i]).unwrap();
+            let mut msm = MSMKZG::<E>::new();
+            for (base, scalar) in gshares[i].iter().zip(fshares[i].iter()) {
+                msm.append_term(*scalar, *base)
+            }
+            result[i] = msm.eval();
         }
 
-        let result: G1P = unpackexp(&result, true, &pp).iter().sum();
+        let result: G1P = unpackexp::<E>(&result, true, &pp).iter().sum();
         assert_eq!(expected, result);
     }
 }
