@@ -2,5 +2,6 @@
 members = [
   "secret-sharing",
   "dist-primitives",
-  "mpc-net"
+  "mpc-net",
+  "kzg_test"
 ]
