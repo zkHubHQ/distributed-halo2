@@ -42,6 +42,7 @@ The linearity property of FFTs is leveraged here. The steps for implementing FFT
 5) The result is sent back to the parties, who can then securely obtain the FFT output by subtracting the masked values.
 
 **src/dpp**
+
 This folder contains the functionality to efficiently perform Partial Product Operations among multiple parties. 
 The goal is to securely compute a product of elements x1 to xm, but not sequentially (which would take O(m) rounds), rather in a more parallelized and efficient way. The approach relies on rewriting the product in a way that allows for parallel computation.
 Instead of computing the product sequentially, we break the problem into smaller products over disjoint subsets of the input xi's.
@@ -53,6 +54,7 @@ These products are computed using techniques that involve O(m) total computation
 
 
 **src/dmsm**
+
 We compute secret shares of the scalars involved in the operation and then compute the shares of the resulting group elements. This enables the use of arithmetic field operations in the exponent, which are necessary for group exponentiation and element multiplication. Since we are dealing with group operations in elliptic curve groups, which can't be directly represented as arithmetic operations over finite fields (unlike traditional polynomial-based secret sharing schemes) we extend the concept of polynomial-based secret sharing to handle group operations. 
 
 **Addition in the Exponent**
