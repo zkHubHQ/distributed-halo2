@@ -1,6 +1,0 @@
-[submodule "halo2"]
-	path = halo2
-	url = git@github.com:guni7/halo2.git
-[submodule "kzg_test"]
-	path = kzg_test
-	url = git@github.com:sifnoc/kzg_test.git
