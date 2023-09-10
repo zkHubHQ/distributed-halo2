@@ -74,11 +74,23 @@ Implementation Steps -
 
 ### secret-sharing
 
+This is an implementation of the Packed Secret Sharing Algorithm over the halo2 Evaluation Domain for computing a batch of packed secret shares of random vectors without reconstructing the actual vectors. 
+
+It requires a Vandermonde matrix [Vn,n−t] over the finite field F as auxiliary input. This matrix is used for computations during the protocol.
+The parties involved in the protocol do not have any specific inputs; they are generating random values.
+
+The protocol ensures that even if some parties are corrupted (up to t parties), the security of the protocol is maintained. The total communication and computation complexity of this protocol is O(n^2), but since it generates packed shares of O(n−t) vectors, each of length O(n), the amortized cost of sharing a random value using this protocol is O(1).
+
 ### halo2 
+
+PSE's version of the Halo2 framework with KZG Commitment Scheme. 
+We replace the function calls to "best_fft" and "best_multiexp" with dfft and dmsms for this version. We plan on working 
 
 ### mpc-net 
 
-###
+Inspired by [[https://github.com/alex-ozdemir/collaborative-zksnark]]
+
+This implements all the networking logic between the king party and the worker parties, 
 
 ### kzg_test
 
