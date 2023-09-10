@@ -21,7 +21,7 @@ bincode = "1.3"
 ff = "0.13"
 group = "0.13"
 halo2curves = { version = "0.1.0" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+halo2_proofs = { path = "../halo2/halo2_proofs" }
 
 secret-sharing = { version = "0.1.0", path = "../secret-sharing" }
 mpc-net ={ version = "0.1.0", path = "../mpc-net" }
