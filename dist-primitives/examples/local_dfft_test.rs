@@ -108,6 +108,6 @@ where
 
 pub fn main() {
     let pp = PackedSharingParams::<Fr>::new(2);
-    let dom = EvaluationDomain::<Fr>::new(1, 8);
+    let dom = EvaluationDomain::<Fr>::new(1, (8 as f64).log2() as u32);
     local_dfft_test::<Fr>(&pp, &dom);
 }

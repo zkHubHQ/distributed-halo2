@@ -54,8 +54,8 @@ pub fn main() {
 
     Net::init_from_file(opt.input.to_str().unwrap(), opt.id);
     let pp = PackedSharingParams::<Fr>::new(opt.l);
-    let cd = EvaluationDomain::<Fr>::new(1, opt.m as usize);
-    d_pp_test::<ark_bls12_377::Fr>(&pp, &cd);
+    let cd = EvaluationDomain::<Fr>::new(1, (opt.m as f64).log2() as u32);
+    d_pp_test::<Fr>(&pp, &cd);
 
     Net::deinit();
 }
