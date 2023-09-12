@@ -92,5 +92,4 @@ Inspired by [[https://github.com/alex-ozdemir/collaborative-zksnark]]
 
 This implements all the networking logic between the king party and the worker parties, 
 
-### kzg_test
 
