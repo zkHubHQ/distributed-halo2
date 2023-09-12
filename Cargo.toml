@@ -4,7 +4,6 @@ members = [
   "dist-primitives",
   "mpc-net",
   "fib-circuit",
-  "halo2",
   "halo2_gadgets",
   "halo2_proofs",
 ]
