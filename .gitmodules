@@ -1,0 +1,6 @@
+[submodule "halo2"]
+	path = halo2
+	url = git@github.com:guni7/halo2.git
+[submodule "halo2-lib"]
+	path = halo2-lib
+	url = git@github.com:punwai/halo2-lib.git
