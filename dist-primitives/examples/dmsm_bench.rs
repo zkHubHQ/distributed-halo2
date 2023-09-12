@@ -1,18 +1,22 @@
-use ark_ec::CurveGroup;
 use ark_std::{end_timer, start_timer, UniformRand, Zero};
+use dist_primitives::utils::domain_utils::EvaluationDomainExt;
 use dist_primitives::{dmsm::dmsm::d_msm, Opt};
+use ff::{PrimeField, WithSmallOrderMulGroup};
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr},
     poly::EvaluationDomain,
 };
+use halo2curves::pairing::Engine;
 use mpc_net::{MpcMultiNet as Net, MpcNet};
 use secret_sharing::pss::PackedSharingParams;
+use std::fmt::Debug;
 use structopt::StructOpt;
 
-pub fn d_msm_test<G: CurveGroup>(
-    pp: &PackedSharingParams<G::ScalarField>,
-    dom: &Radix2EvaluationDomain<G::ScalarField>,
-) {
+pub fn d_msm_test<E: Engine>(pp: &PackedSharingParams<E::Scalar>, dom: &EvaluationDomain<E::Scalar>)
+where
+    E: Engine + Debug,
+    E::Scalar: PrimeField + WithSmallOrderMulGroup<3>,
+{
     // let m = pp.l*4;
     // let case_timer = start_timer!(||"affinemsm_test");
     let mbyl: usize = dom.size() / pp.l;
@@ -20,11 +24,11 @@ pub fn d_msm_test<G: CurveGroup>(
 
     let rng = &mut ark_std::test_rng();
 
-    let mut y_share: Vec<G::ScalarField> = vec![G::ScalarField::zero(); dom.size()];
+    let mut y_share: Vec<E::Scalar> = vec![E::Scalar::; dom.size()];
     let mut x_share: Vec<G> = vec![G::zero(); dom.size()];
 
     for i in 0..dom.size() {
-        y_share[i] = G::ScalarField::rand(rng);
+        y_share[i] = E::Scalar::rand(rng);
         x_share[i] = G::rand(rng);
     }
 
@@ -44,9 +48,9 @@ fn main() {
 
     let pp = PackedSharingParams::<Fr>::new(opt.l);
     for i in 10..20 {
-        let dom = Radix2EvaluationDomain::<Fr>::new(1 << i).unwrap();
+        let dom = EvaluationDomain::<Fr>::new(1, 1 << i)();
         println!("domain size: {}", dom.size());
-        d_msm_test::<ark_bls12_377::G1Projective>(&pp, &dom);
+        d_msm_test::<Bn256>(&pp, &dom);
     }
 
     Net::deinit();

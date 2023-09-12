@@ -1,16 +1,20 @@
 use std::mem;
 
-use ark_bls12_377::Fr;
-use ark_ff::{FftField, PrimeField};
-use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use ark_std::{end_timer, log2, start_timer};
 use dist_primitives::dfft::dfft::fft_in_place_rearrange;
+use dist_primitives::utils::domain_utils::EvaluationDomainExt;
+use ff::{PrimeField, WithSmallOrderMulGroup};
+use halo2_proofs::{
+    halo2curves::bn256::Fr,
+    poly::{EvaluationDomain, Rotation},
+};
 use secret_sharing::pss::PackedSharingParams;
+use serde::{Deserialize, Serialize};
 
-pub fn local_dfft_test<F: FftField + PrimeField>(
-    pp: &PackedSharingParams<F>,
-    dom: &Radix2EvaluationDomain<F>,
-) {
+pub fn local_dfft_test<F>(pp: &PackedSharingParams<F>, dom: &EvaluationDomain<F>)
+where
+    F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>,
+{
     let mbyl: usize = dom.size() / pp.l;
 
     // We apply FFT on this vector
@@ -21,7 +25,8 @@ pub fn local_dfft_test<F: FftField + PrimeField>(
     }
 
     // Output to test against
-    let output = dom.fft(&x);
+    let mut expected_x = x.clone();
+    let output = PackedSharingParams::fft(&mut expected_x, dom);
 
     // Rearranging x
     let myfft_timer = start_timer!(|| "MY FFT");
@@ -40,7 +45,7 @@ pub fn local_dfft_test<F: FftField + PrimeField>(
     // fft1
     for i in (log2(pp.l) + 1..=log2(dom.size())).rev() {
         let poly_size = dom.size() / 2usize.pow(i);
-        let factor_stride = dom.element(2usize.pow(i - 1));
+        let factor_stride = element(2usize.pow(i - 1), &dom);
         let mut factor = factor_stride;
         for k in 0..poly_size {
             for j in 0..2usize.pow(i - 1) / pp.l {
@@ -71,7 +76,7 @@ pub fn local_dfft_test<F: FftField + PrimeField>(
 
     for i in (1..=log2(pp.l)).rev() {
         let poly_size = dom.size() / 2usize.pow(i);
-        let factor_stride = dom.element(2usize.pow(i - 1));
+        let factor_stride = element(2usize.pow(i - 1), &dom);
         let mut factor = factor_stride;
         for k in 0..poly_size {
             for j in 0..2usize.pow(i - 1) {
@@ -93,8 +98,16 @@ pub fn local_dfft_test<F: FftField + PrimeField>(
     assert_eq!(output, s1);
 }
 
+// get the ith element of the domain
+pub fn element<F>(i: usize, dom: &EvaluationDomain<F>) -> F
+where
+    F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>,
+{
+    dom.rotate_omega(F::ONE, Rotation(i as i32))
+}
+
 pub fn main() {
     let pp = PackedSharingParams::<Fr>::new(2);
-    let dom = Radix2EvaluationDomain::<Fr>::new(8).unwrap();
+    let dom = EvaluationDomain::<Fr>::new(1, 8);
     local_dfft_test::<Fr>(&pp, &dom);
 }

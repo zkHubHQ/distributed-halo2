@@ -1,20 +1,21 @@
-use ark_bls12_377::Fr;
-use ark_ff::{FftField, PrimeField};
-use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
+use dist_primitives::utils::domain_utils::EvaluationDomainExt;
 use dist_primitives::{
     channel::channel::MpcSerNet,
     dpp::dpp::d_pp,
     utils::pack::{pack_vec, transpose},
     Opt,
 };
+use ff::{PrimeField, WithSmallOrderMulGroup};
+use halo2_proofs::{halo2curves::bn256::Fr, poly::EvaluationDomain};
 use mpc_net::{MpcMultiNet as Net, MpcNet};
 use secret_sharing::pss::PackedSharingParams;
+use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
 
-pub fn d_pp_test<F: FftField + PrimeField>(
-    pp: &PackedSharingParams<F>,
-    dom: &Radix2EvaluationDomain<F>,
-) {
+pub fn d_pp_test<F>(pp: &PackedSharingParams<F>, dom: &EvaluationDomain<F>)
+where
+    F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>,
+{
     // We apply FFT on this vector
     // let mut x = vec![F::ONE; cd.m];
     let mut x: Vec<F> = Vec::new();
@@ -23,7 +24,7 @@ pub fn d_pp_test<F: FftField + PrimeField>(
     }
 
     // Output to test against
-    let should_be_output = vec![F::one(); dom.size()];
+    let should_be_output = vec![F::ONE; dom.size()];
 
     // pack x
     let px = transpose(pack_vec(&x, pp));
@@ -53,7 +54,7 @@ pub fn main() {
 
     Net::init_from_file(opt.input.to_str().unwrap(), opt.id);
     let pp = PackedSharingParams::<Fr>::new(opt.l);
-    let cd = Radix2EvaluationDomain::<Fr>::new(opt.m).unwrap();
+    let cd = EvaluationDomain::<Fr>::new(1, opt.m as usize);
     d_pp_test::<ark_bls12_377::Fr>(&pp, &cd);
 
     Net::deinit();

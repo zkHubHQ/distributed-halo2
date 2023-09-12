@@ -1,6 +1,5 @@
 use ark_std::{end_timer, start_timer};
 use dist_primitives::utils::domain_utils::EvaluationDomainExt;
-// use dist_primitives::utils::fr_serialization::{deserialize, serialize};
 use dist_primitives::{
     channel::channel::MpcSerNet,
     dfft::dfft::{d_fft, fft_in_place_rearrange},
@@ -8,10 +7,7 @@ use dist_primitives::{
     Opt,
 };
 use ff::{PrimeField, WithSmallOrderMulGroup};
-use halo2_proofs::{
-    halo2curves::bn256::{Bn256, Fr},
-    poly::EvaluationDomain,
-};
+use halo2_proofs::{halo2curves::bn256::Fr, poly::EvaluationDomain};
 use mpc_net::{MpcMultiNet as Net, MpcNet};
 use secret_sharing::pss::PackedSharingParams;
 use serde::{Deserialize, Serialize};
@@ -74,7 +70,7 @@ pub fn main() {
 
     Net::init_from_file(opt.input.to_str().unwrap(), opt.id);
     let pp = PackedSharingParams::<Fr>::new(opt.l);
-    let dom = EvaluationDomain::<Fr>::new(1, opt.m as u32);
+    let dom = EvaluationDomain::<Fr>::new(1, (opt.m as f64).log2() as u32);
     debug_assert_eq!(
         dom.size(),
         opt.m,
