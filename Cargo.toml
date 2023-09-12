@@ -2,5 +2,9 @@
 members = [
   "secret-sharing",
   "dist-primitives",
-  "mpc-net"
+  "mpc-net",
+  "fib-circuit",
+  "halo2",
+  "halo2_gadgets",
+  "halo2_proofs",
 ]

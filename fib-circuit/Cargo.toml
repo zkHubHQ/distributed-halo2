@@ -1,0 +1,18 @@
+[package]
+name = "fib-circuit"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+halo2_proofs = { path = "../halo2_proofs"}
+itertools = "0.10.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4"
+rand = "0.8"
+snark-verifier-sdk = { git = "https://github.com/brechtpd/snark-verifier.git", branch = "feat/add-sdk", default-features = false, features = ["loader_halo2", "loader_evm", "parallel", "display", "halo2_circuit_params"] }
+ff = "0.13"
+halo2-base = { git = "https://github.com/punwai/halo2-lib", branch = "kzg", default-features = false, features = ["test-utils"] }
+
