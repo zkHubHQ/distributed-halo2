@@ -72,6 +72,36 @@ Implementation Steps -
 2) They compute local multiplications and transformations on the input shares to obtain intermediate results.
 3) These intermediate results are then combined to compute the final result securely.
 
+## Testing and Benchmarking with Scripts
+
+To facilitate robust testing and benchmarking of the `distributed-halo2` functionalities, several utility scripts are provided. These scripts are essential for anyone looking to understand the performance characteristics and validate the correct behavior of the underlying codebase.
+
+### Available Scripts
+
+1. **dfft_test.zsh**: Tests the distributed Fast Fourier Transform functionality. This is a cornerstone of our implementation and is crucial for its performance and accuracy.
+   
+2. **dmsm_bench.zsh**: Benchmarks the distributed Multi Scalar Multiplication. Essential for understanding the scalability and efficiency of our distributed operations.
+
+3. **dmsm_test.zsh**: Tests the distributed Multi Scalar Multiplication to ensure its correctness in various scenarios.
+
+4. **dpoly_commit_test.zsh**: A test script specifically tailored for the distributed polynomial commitment functionalities.
+
+5. **dpp_test.zsh**: Tests the distributed Partial Product Operations. This helps in understanding how well we can perform products over disjoint subsets of data in a distributed manner.
+
+6. **ext_wit_test.zsh**: This script tests the functionalities related to Extended Witness operations.
+
+7. **plonk_bench.zsh**: Benchmarks the core PLONK functionalities in a distributed setting. USes the standard PLONK algorithm, and will be extended to Halo2's TurboPLONK implementation soon.
+
+### Running the Scripts
+
+To run any of the scripts, for example:
+
+```bash
+$ cd scripts
+$ chmod +x dfft_test.zsh
+$ ./dfft_test.zsh
+```
+
 ### secret-sharing
 
 This is an implementation of the Packed Secret Sharing Algorithm over the halo2 Evaluation Domain for computing a batch of packed secret shares of random vectors without reconstructing the actual vectors. 
