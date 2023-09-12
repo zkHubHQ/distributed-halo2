@@ -3,6 +3,7 @@ use halo2_proofs::halo2curves::pairing::Engine;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+#[derive(Debug, Default, PartialEq)]
 pub struct G1Wrapper<E: Engine>(pub E::G1);
 
 pub struct G1Visitor<E: Engine>(pub std::marker::PhantomData<E>);
@@ -55,4 +56,3 @@ impl<E: Engine> Clone for G1Wrapper<E> {
         G1Wrapper(self.0.clone())
     }
 }
-

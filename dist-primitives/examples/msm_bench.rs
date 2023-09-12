@@ -13,7 +13,7 @@ use halo2_proofs::{
 use halo2curves::pairing::Engine;
 use std::fmt::Debug;
 
-pub fn msm_test<E: Engine>(dom: &EvaluationDomain<E::Scalar>)
+pub fn msm_test<E>(dom: &EvaluationDomain<E::Scalar>)
 where
     E: Engine + Debug,
     E::Scalar: PrimeField + WithSmallOrderMulGroup<3>,

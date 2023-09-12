@@ -5,4 +5,5 @@ members = [
   "mpc-net",
   "halo2_gadgets",
   "halo2_proofs",
+  "plonk",
 ]
