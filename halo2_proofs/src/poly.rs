@@ -11,7 +11,9 @@ use group::ff::{BatchInvert, Field};
 use std::fmt::Debug;
 use std::io;
 use std::marker::PhantomData;
-use std::ops::{Add, Deref, DerefMut, Index, IndexMut, Mul, RangeFrom, RangeFull, Sub};
+use std::ops::{
+    Add, Deref, DerefMut, Div, Index, IndexMut, Mul, RangeFrom, RangeFull, Sub, SubAssign,
+};
 
 /// Generic commitment scheme structures
 pub mod commitment;
@@ -172,6 +174,73 @@ impl<F: SerdePrimeField, B> Polynomial<F, B> {
             value.write(writer, format)?;
         }
         Ok(())
+    }
+}
+
+impl<F: Field + SubAssign, B: Basis> Polynomial<F, B> {
+    /// Create a polynomial from a vector of coefficients.
+    pub fn from_coefficients_vec(values: Vec<F>) -> Polynomial<F, Coeff> {
+        Polynomial {
+            values,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Convert a polynomial in coefficient form to another basis B.
+    pub fn convert_from_coeff<B2: Basis>(coeff_poly: Polynomial<F, Coeff>) -> Polynomial<F, B2> {
+        Polynomial {
+            values: coeff_poly.values,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Divides the polynomial by another polynomial, returning the quotient and remainder.
+    pub fn divide_with_q_and_r(
+        &self,
+        divisor: &Polynomial<F, B>,
+    ) -> (Polynomial<F, B>, Polynomial<F, B>) {
+        assert!(!divisor.is_zero(), "Cannot divide by zero polynomial.");
+
+        let mut quotient = vec![F::ZERO; self.len() - divisor.len() + 1];
+        let mut remainder: Vec<F> = self.values.clone();
+
+        for i in (0..=self.len() - divisor.len()).rev() {
+            let divisor_lead_inv = divisor[divisor.len() - 1]
+                .invert()
+                .expect("Cannot find inverse.");
+            let leading_term = remainder[i + divisor.len() - 1] * divisor_lead_inv;
+            quotient[i] = leading_term;
+
+            for (j, coeff) in divisor.iter().enumerate() {
+                remainder[i + j].sub_assign(leading_term * (*coeff));
+            }
+        }
+
+        (
+            Polynomial::<F, B>::convert_from_coeff(Polynomial::<F, B>::from_coefficients_vec(
+                quotient,
+            )),
+            Polynomial::<F, B>::convert_from_coeff(Polynomial::<F, B>::from_coefficients_vec(
+                remainder,
+            )),
+        )
+    }
+
+    /// Checks if the polynomial is zero.
+    pub fn is_zero(&self) -> bool {
+        self.values.iter().all(|&coeff| coeff == F::ZERO)
+    }
+
+    /// Evaluates the polynomial at the given point using Horner's method.
+    pub fn evaluate(&self, point: &F) -> F {
+        let mut result = F::ZERO;
+
+        for coeff in self.values.iter().rev() {
+            result *= *point;
+            result += *coeff;
+        }
+
+        result
     }
 }
 

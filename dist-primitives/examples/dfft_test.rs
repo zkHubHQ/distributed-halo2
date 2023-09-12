@@ -1,21 +1,22 @@
-use ark_bls12_377::Fr;
-use ark_ff::{FftField, PrimeField};
-use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use ark_std::{end_timer, start_timer};
+use dist_primitives::utils::domain_utils::EvaluationDomainExt;
 use dist_primitives::{
     channel::channel::MpcSerNet,
     dfft::dfft::{d_fft, fft_in_place_rearrange},
     utils::pack::transpose,
     Opt,
 };
+use ff::{PrimeField, WithSmallOrderMulGroup};
+use halo2_proofs::{halo2curves::bn256::Fr, poly::EvaluationDomain};
 use mpc_net::{MpcMultiNet as Net, MpcNet};
 use secret_sharing::pss::PackedSharingParams;
+use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
 
-pub fn d_fft_test<F: FftField + PrimeField>(
-    pp: &PackedSharingParams<F>,
-    dom: &Radix2EvaluationDomain<F>,
-) {
+pub fn d_fft_test<F>(pp: &PackedSharingParams<F>, dom: &EvaluationDomain<F>)
+where
+    F: PrimeField + WithSmallOrderMulGroup<3> + Serialize + for<'de> Deserialize<'de>,
+{
     let mbyl: usize = dom.size() / pp.l;
     // We apply FFT on this vector
     // let mut x = vec![F::ONE; cd.m];
@@ -25,7 +26,8 @@ pub fn d_fft_test<F: FftField + PrimeField>(
     }
 
     // Output to test against
-    let should_be_output = dom.fft(&x);
+    let mut expected_x = x.clone();
+    let should_be_output = PackedSharingParams::fft(&mut expected_x, dom);
 
     fft_in_place_rearrange(&mut x);
     let mut pcoeff: Vec<Vec<F>> = Vec::new();
@@ -68,14 +70,14 @@ pub fn main() {
 
     Net::init_from_file(opt.input.to_str().unwrap(), opt.id);
     let pp = PackedSharingParams::<Fr>::new(opt.l);
-    let dom = Radix2EvaluationDomain::<Fr>::new(opt.m).unwrap();
+    let dom = EvaluationDomain::<Fr>::new(1, (opt.m as f64).log2() as u32);
     debug_assert_eq!(
         dom.size(),
         opt.m,
         "Failed to obtain domain of size {}",
         opt.m
     );
-    d_fft_test::<ark_bls12_377::Fr>(&pp, &dom);
+    d_fft_test::<Fr>(&pp, &dom);
 
     Net::deinit();
 }
