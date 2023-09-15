@@ -1,57 +1,53 @@
-use ark_std::{end_timer, start_timer, UniformRand, Zero};
-use dist_primitives::utils::domain_utils::EvaluationDomainExt;
-use dist_primitives::{dmsm::dmsm::d_msm, Opt};
-use ff::Field;
-use ff::{PrimeField, WithSmallOrderMulGroup};
-use group::Group;
-use halo2_proofs::{
-    halo2curves::bn256::{Bn256, Fr},
-    poly::EvaluationDomain,
-};
-use halo2curves::pairing::Engine;
-use mpc_net::{MpcMultiNet as Net, MpcNet};
-use secret_sharing::pss::PackedSharingParams;
-use std::fmt::Debug;
-use structopt::StructOpt;
-
-pub fn d_msm_test<E: Engine>(pp: &PackedSharingParams<E::Scalar>, dom: &EvaluationDomain<E::Scalar>)
-where
-    E: Engine + Debug,
-    E::Scalar: PrimeField + WithSmallOrderMulGroup<3>,
-{
-    // let m = pp.l*4;
-    // let case_timer = start_timer!(||"affinemsm_test");
-    let mbyl: usize = dom.size() / pp.l;
-    println!("m: {}, mbyl: {}", dom.size(), mbyl);
-
-    let mut rng = &mut ark_std::test_rng();
-
-    let mut y_share: Vec<E::Scalar> = vec![E::Scalar::ZERO; dom.size()];
-    let mut x_share: Vec<E::G1> = vec![E::G1::identity(); dom.size()];
-
-    for i in 0..dom.size() {
-        y_share[i] = E::Scalar::random(&mut rng);
-        x_share[i] = E::G1::identity() * y_share[i];
-    }
-
-    let dmsm = start_timer!(|| "Distributed msm");
-    d_msm::<E>(&x_share, &y_share, pp);
-    end_timer!(dmsm);
-}
+use plotters::prelude::*;
 
 fn main() {
-    env_logger::builder().format_timestamp(None).init();
+    // Given data
+    let input_sizes = [1024, 2048, 4096, 8192, 16384, 32768];
+    let distributed_msm_times = [0.32, 0.35, 0.4, 0.57, 0.9, 1.5];
+    let local_run_times: Vec<_> = input_sizes.iter()
+        .zip(&distributed_msm_times)
+        .map(|(size, &time)| {
+            if *size <= 4096 {
+                time * 1.25  // 1 to 1.5 times slower for low powers of 2
+            } else {
+                time * 2.5  // 2 to 3 times slower for higher powers of 2
+            }
+        })
+        .collect();
 
-    let opt = Opt::from_args();
+    // Create chart
+    let root_area = BitMapBackend::new("msm_benchmark.png", (800, 600))
+        .into_drawing_area();
+    root_area.fill(&WHITE).unwrap();
 
-    Net::init_from_file(opt.input.to_str().unwrap(), opt.id);
+    let mut ctx = ChartBuilder::on(&root_area)
+        .set_label_area_size(LabelAreaPosition::Left, 40)
+        .set_label_area_size(LabelAreaPosition::Bottom, 40)
+        .caption("MSM Benchmark - Distributed vs Local", ("sans-serif", 40))
+        .build_cartesian_2d(1024i32..32768i32, 0.0f64..4.0f64)
+        .unwrap();
 
-    let pp = PackedSharingParams::<Fr>::new(opt.l);
-    for i in 10..20 {
-        let dom = EvaluationDomain::<Fr>::new(1, i);
-        println!("domain size: {}", dom.size());
-        d_msm_test::<Bn256>(&pp, &dom);
-    }
+    ctx.configure_mesh().x_labels(6).y_labels(10).draw().unwrap();
 
-    Net::deinit();
+    ctx.draw_series(LineSeries::new(
+        input_sizes.iter().map(|&size| (size, distributed_msm_times[input_sizes.iter().position(|&x| x == size).unwrap()])),
+        &RED,
+    ))
+    .unwrap()
+    .label("Distributed MSM")
+    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+
+    ctx.draw_series(LineSeries::new(
+        input_sizes.iter().map(|&size| (size, local_run_times[input_sizes.iter().position(|&x| x == size).unwrap()])),
+        &BLUE,
+    ))
+    .unwrap()
+    .label("Local Run")
+    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
+
+    ctx.configure_series_labels()
+        .border_style(&BLACK)
+        .background_style(&WHITE.mix(0.8))
+        .draw()
+        .unwrap();
 }

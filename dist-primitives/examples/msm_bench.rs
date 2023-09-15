@@ -41,7 +41,7 @@ where
 }
 
 fn main() {
-    for i in 10..20 {
+    for i in 10..15 {
         let dom = EvaluationDomain::<Fr>::new(1, i);
         println!("domain size: {}", dom.size());
         msm_test::<Bn256>(&dom);
